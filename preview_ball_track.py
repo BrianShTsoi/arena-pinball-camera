@@ -37,38 +37,30 @@ PURPLE = (128, 0, 128)
 PINK = (203, 192, 255)
 TURQUOISE = (208, 224, 64)
 
-def trace_ball_in_frame(img):
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+def find_contours_in_frame(frame):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     masked = cv2.inRange(hsv, BALL_COLOR_MIN, BALL_COLOR_MAX)
-    # return masked, 0, 0
 
     contours, _ = cv2.findContours(masked, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not contours:
-        # return masked
-        return img, -1, -1
-    cv2.drawContours(img, contours, -1, TURQUOISE, 2)
+    return contours
 
-    cx = -1
-    cy = -1
+def find_ball_in_frame(frame, contours):
+    cx, cy = -1, -1
     largest_area_contour = max(contours, key=cv2.contourArea)
     if cv2.contourArea(largest_area_contour) > MIN_BALL_RADIUS:
         M = cv2.moments(largest_area_contour)
         if M["m00"] != 0:
             cx = int(M["m10"] / M["m00"])
             cy = int(M["m01"] / M["m00"])
-            cv2.circle(img, (cx, cy), MIN_BALL_RADIUS, GREEN, -1)
-        cv2.drawContours(img, largest_area_contour, -1, RED, 8)
+    return largest_area_contour, cx, cy
 
-    return img, cx, cy
-    # return masked
-
-def add_frame_grids(img):
+def add_frame_grids(frame):
     for i in range(0, GRID_COLS + 1):
         x = i * GRID_CELL_WIDTH + GRID_MARGIN_X
-        cv2.line(img, (x, GRID_MARGIN_Y), (x, FRAME_HEIGHT - GRID_MARGIN_Y), MAGENTA, 5)
+        cv2.line(frame, (x, GRID_MARGIN_Y), (x, FRAME_HEIGHT - GRID_MARGIN_Y), MAGENTA, 5)
     for i in range(0, GRID_ROWS + 1):
         y = i * GRID_CELL_HEIGHT + GRID_MARGIN_Y
-        cv2.line(img, (GRID_MARGIN_X, y), (FRAME_WIDTH - GRID_MARGIN_X, y), MAGENTA, 5)
+        cv2.line(frame, (GRID_MARGIN_X, y), (FRAME_WIDTH - GRID_MARGIN_X, y), MAGENTA, 5)
 
 def generate_cells_coordinates():
     cells = []
@@ -81,50 +73,50 @@ def generate_cells_coordinates():
             cells.append((x1, x2, y1, y2))
     return cells
 
-def draw_cells_with_ball(img, cells, x, y):
+def draw_cells_with_ball(frame, cells, x, y):
     ball_cell_index = -1
     for i, cell in enumerate(cells):
         x1, x2, y1, y2 = cell
-        cv2.line(img, (x1, y1), (x2, y1), MAGENTA, 5) 
-        cv2.line(img, (x1, y2), (x2, y2), MAGENTA, 5) 
-        cv2.line(img, (x1, y1), (x1, y2), MAGENTA, 5)
-        cv2.line(img, (x2, y1), (x2, y2), MAGENTA, 5)
+        cv2.line(frame, (x1, y1), (x2, y1), MAGENTA, 5) 
+        cv2.line(frame, (x1, y2), (x2, y2), MAGENTA, 5) 
+        cv2.line(frame, (x1, y1), (x1, y2), MAGENTA, 5)
+        cv2.line(frame, (x2, y1), (x2, y2), MAGENTA, 5)
 
         if x >= x1 and x <= x2 and y >= y1 and y <= y2:
             ball_cell_index = i
 
     if ball_cell_index != -1:
         x1, x2, y1, y2 = cells[ball_cell_index]
-        cv2.line(img, (x1, y1), (x2, y1), YELLOW, 5) 
-        cv2.line(img, (x1, y2), (x2, y2), YELLOW, 5) 
-        cv2.line(img, (x1, y1), (x1, y2), YELLOW, 5)
-        cv2.line(img, (x2, y1), (x2, y2), YELLOW, 5)
+        cv2.line(frame, (x1, y1), (x2, y1), YELLOW, 5) 
+        cv2.line(frame, (x1, y2), (x2, y2), YELLOW, 5) 
+        cv2.line(frame, (x1, y1), (x1, y2), YELLOW, 5)
+        cv2.line(frame, (x2, y1), (x2, y2), YELLOW, 5)
     
 
 if __name__ == "__main__":
+    cells = generate_cells_coordinates()
+
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (FRAME_WIDTH, FRAME_HEIGHT)}))
     picam2.start()
-
-    cells = generate_cells_coordinates()
     while True:
         frame = picam2.capture_array()
 
-        # # Restructure to findContours & drawContours -> findBall & drawBall
-        # contours = detect_contours_in_frame()
-        # drawContours(contours)
-        # ball_contours, x, y = detect_ball_in_frame()
-        # drawBall(ball_contours, x, y)
+        x, y = -1, -1
+        contours = find_contours_in_frame(frame)
+        if contours:
+            cv2.drawContours(frame, contours, -1, TURQUOISE, 2)
+            ball_contour, x, y = find_ball_in_frame(frame, contours)
+            cv2.drawContours(frame, ball_contour, -1, RED, 8)
+            cv2.circle(frame, (x, y), MIN_BALL_RADIUS, GREEN, -1)
 
-        masked, x, y = trace_ball_in_frame(frame)
-        draw_cells_with_ball(masked, cells, x, y)
-
-        cv2.putText(masked, "{} {}".format(x, y), (25, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, WHITE, 2)
+        draw_cells_with_ball(frame, cells, x, y)
+        cv2.putText(frame, "{} {}".format(x, y), (25, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, WHITE, 2)
 
         cv2.namedWindow('Ball Tracking', cv2.WINDOW_NORMAL)
         # cv2.resizeWindow('Ball Tracking', 820, 616)
-        # cv2.setWindowProperty("Ball Tracking", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.imshow('Ball Tracking', masked)
+        cv2.setWindowProperty("Ball Tracking", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.imshow('Ball Tracking', frame)
 
         if cv2.waitKey(1) == ord('q'):
             break
