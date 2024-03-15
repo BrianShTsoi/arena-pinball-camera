@@ -1,15 +1,3 @@
-# import smbus
-
-# bus_number = 1
-
-# device_address = 0x68  # Replace this with the address of your device
-
-# bus = smbus.SMBus(bus_number)
-
-# data = bus.read_byte_data(device_address, register_address)
-# print("Data read from device:", data)
-
-
 #  Raspberry Pi Master for Arduino Slave
 #  i2c_master_pi.py
 #  Connects to Arduino via I2C
