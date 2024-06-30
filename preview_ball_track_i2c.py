@@ -168,7 +168,7 @@ if __name__ == "__main__":
         i2c_msg = ":{}:{}".format(str(x).rjust(5), str(y).rjust(4))
         print("running")
 
-        if sys.argv.__len__ == 2 and sys.argv[1] == "-c":
+        if len(sys.argv) == 2 and sys.argv[1] == "-c":
             cv2.namedWindow('Ball Tracking', cv2.WINDOW_NORMAL)
             # cv2.resizeWindow('Ball Tracking', 820, 616)
             cv2.setWindowProperty(
